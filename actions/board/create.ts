@@ -1,20 +1,30 @@
 "use server";
 
-import  {z} from 'zod';
+import { InputType, ReturnType } from "@/actions/board/types";
+import { db } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { createSafeAction } from "@/lib/createSafeAction";
+import { CreateBoard } from "@/actions/board/schema";
 
-import {db}  from '@/lib/db';
+const handler = async (data: InputType): Promise<ReturnType> => {
+  const { title } = data;
 
-const CreateBoardSchema = z.object({
-  title: z.string().min(3, {message: "Title must be at least 3 characters long."}),
-});
+  let board;
 
-export async function create(formData: FormData) {
-  "use server";
-  const title = formData.get('title') as string;
+  try {
+    board = await db.board.create({
+      data: {
+        title,
+      },
+    });
+  } catch (e) {
+    return {
+      error: "Failed to Create",
+    };
+  }
 
-  await db.board.create({
-    data: {
-      title
-    }
-  })
-}
+  revalidatePath(`/board/${board.id}`);
+  return { data: board };
+};
+
+export const createBoard = createSafeAction(CreateBoard, handler);
